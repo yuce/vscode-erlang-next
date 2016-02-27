@@ -48,21 +48,7 @@ export class ErlangCompletionProvider implements CompletionItemProvider {
                 this.resolveGenericItems(resolve, reject, doc.fileName);
             }
             else {
-                resolve([]);
-                // const moduleName = m[1];
-                // this.whatelsClient.getAllPathSymbols().then(
-                //     pathSymbols => this.resolveModuleItems(resolve, moduleName, pathSymbols),
-                //     err => reject(err)
-                // );
-                // if (this.stdModules === null) {
-                //     this.readCompletionJson(this.completionPath, modules => {
-                //         this.stdModules = modules;
-                //         this.resolveFunNames(m[1], resolve);
-                //     });
-                // }
-                // else {
-                //     this.resolveFunNames(m[1], resolve);
-                // }
+                this.resolveModuleItems(resolve, reject, m[1]);
             }
         });
     }
@@ -74,6 +60,13 @@ export class ErlangCompletionProvider implements CompletionItemProvider {
         )
     }
 
+    private resolveModuleItems(resolve, reject, moduleName: string) {
+        this.getModuleCompletionItems(moduleName).then(
+            items => resolve(items),
+            err => reject(err)
+        );
+    }
+
     private getGenericCompletionItems(path: string): Thenable<CompletionItem[]> {
         return new Promise<CompletionItem[]>((resolve, reject) => {
             if (this.genericCompletionItems) {
@@ -81,7 +74,7 @@ export class ErlangCompletionProvider implements CompletionItemProvider {
             }
             else {
                 let cis: CompletionItem[] = [];
-                Promise.all([this.getModuleCompletionItems(path),
+                Promise.all([this.getCurrentModuleCompletionItems(path),
                              this.getWorkspaceCompletionItems(),
                              this.getStdLibCompletionItems()]).then(
                     allCompletionItems => {
@@ -97,7 +90,7 @@ export class ErlangCompletionProvider implements CompletionItemProvider {
         });
     }
 
-    private getModuleCompletionItems(path: string): Thenable<CompletionItem[]> {
+    private getCurrentModuleCompletionItems(path: string): Thenable<CompletionItem[]> {
         return new Promise<CompletionItem[]>((resolve, reject) => {
             if (this.moduleCompletionItems && path == this.docPath) {
                 resolve(this.moduleCompletionItems);
@@ -106,7 +99,7 @@ export class ErlangCompletionProvider implements CompletionItemProvider {
                 this.whatelsClient.getPathSymbols(path).then(
                     symbols => {
                         this.docPath = path;
-                        resolve(this.createModuleCompletionItems(path, symbols));
+                        resolve(this.createCurrentModuleCompletionItems(path, symbols));
                     },
                     err => reject(err)
                 );
@@ -142,7 +135,35 @@ export class ErlangCompletionProvider implements CompletionItemProvider {
         });
     }
 
-    private createModuleCompletionItems(path: string, symbols: Symbols) {
+    private getModuleCompletionItems(moduleName: string): Thenable<CompletionItem[]> {
+        return new Promise<CompletionItem[]>((resolve, reject) => {
+            let stdLibFunsPromise = new Promise<void>((resolve, reject) => {
+                if (this.stdModules) {
+                    resolve();
+                }
+                else {
+                    this.readCompletionJson(this.completionPath, modules => {
+                        this.stdModules = modules;
+                        resolve();
+                    });
+                }
+            });
+            let moduleFunsPromise = new Promise<any>((resolve, reject) => {
+                this.whatelsClient.getAllPathSymbols().then(
+                    pathSymbols => resolve(pathSymbols),
+                    err => reject(err)
+                );
+            });
+            Promise.all([stdLibFunsPromise, moduleFunsPromise]).then(
+                values => {
+                    resolve(this.createModuleCompletionItems(moduleName, values[1]));
+                },
+                err => reject(err)
+            );
+        });
+    }
+
+    private createCurrentModuleCompletionItems(path: string, symbols: Symbols) {
         let cis: CompletionItem[] = [];
         if (symbols && symbols.functions) {
             let funNames = new Set(symbols.functions.map(f => {
@@ -162,6 +183,7 @@ export class ErlangCompletionProvider implements CompletionItemProvider {
         for (var k in modules) {
             var item = new CompletionItem(k);
             item.kind = CompletionItemKind.Module;
+            item.detail = 'OTP module';
             cis.push(item);
         }
         return this.stdLibCompletionItems = cis;
@@ -172,10 +194,36 @@ export class ErlangCompletionProvider implements CompletionItemProvider {
         for (var p in pathSymbols) {
             var item = new CompletionItem(path.basename(p, '.erl'));
             item.kind = CompletionItemKind.Module;
+            item.detail = 'Project module';
             cis.push(item);
         }
         console.log('createWorkspaceCompletionItems');
         return this.workspaceCompletionItems = cis;
+    }
+
+    private createModuleCompletionItems(moduleName: string, pathSymbols) {
+        let cis: CompletionItem[] = [];
+        var item: CompletionItem;
+        var symbols: any;
+
+        for (var p in pathSymbols) {
+            if (path.basename(p, '.erl') == moduleName) {
+                symbols = pathSymbols[p] || {};
+                (symbols.functions || []).forEach(f => {
+                    var item = new CompletionItem(f.name);
+                    item.kind = CompletionItemKind.Function;
+                    cis.push(item);
+                });
+                break;
+            }
+        }
+        (this.stdModules[moduleName] || []).forEach(f => {
+            var item = new CompletionItem(f);
+            item.kind = CompletionItemKind.Function;
+            cis.push(item);
+        });
+
+        return cis;
     }
 
     private readCompletionJson(filename: string, done: Function): any {
