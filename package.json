@@ -1,12 +1,12 @@
 {
-	"name": "erlang-otp",
+	"name": "erlang",
+	"publisher": "yuce",
 	"displayName": "Erlang/OTP",
 	"description": "Erlang/OTP support with syntax highlighting, auto-indent and snippets",
-	"version": "0.2.2",
+	"version": "0.3.0",
     "author": {
         "name": "Yuce Tekol"
     },
-	"publisher": "yuce",
     "license": "SEE LICENSE IN LICENSE.md",
 	"engines": {
 		"vscode": "^0.10.6"
