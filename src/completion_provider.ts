@@ -175,8 +175,6 @@ export class ErlangCompletionProvider implements CompletionItemProvider {
             cis.push(item);
         }
         console.log('createWorkspaceCompletionItems');
-        console.log(cis);
-        console.log(this);
         return this.workspaceCompletionItems = cis;
     }
 
