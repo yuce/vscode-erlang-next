@@ -1,8 +1,8 @@
 {
 	"name": "erlang",
 	"publisher": "yuce",
-	"displayName": "Erlang/OTP",
-	"description": "Erlang/OTP support with syntax highlighting, auto-indent and snippets",
+	"displayName": "Erlang/OTP NEXT",
+	"description": "Experimental Erlang/OTP support with suto completion, auto-indent, syntax highlighting, and snippets",
 	"version": "0.3.0",
     "author": {
         "name": "Yuce Tekol"
